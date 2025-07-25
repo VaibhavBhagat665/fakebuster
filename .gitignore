@@ -63,5 +63,5 @@ ENV/
 *.joblib
 *.h5
 *.model
-models/
+
 checkpoints/
