@@ -10,49 +10,142 @@ import historyRoutes from './routes/history';
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true,
+const getAllowedOrigins = () => {
+  const origins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3000',
+    'https://fakebuster-phi.vercel.app',
+  ];
+
+  if (process.env.CLIENT_URL) {
+    origins.push(process.env.CLIENT_URL);
+  }
+
+  origins.push(/^https:\/\/fakebuster.*\.vercel\.app$/);
+  origins.push(/^https:\/\/.*\.vercel\.app$/);
+
+  return origins;
+};
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false
 }));
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cors({
+  origin: function (origin, callback) {
+    const allowedOrigins = getAllowedOrigins();
+    
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      }
+      return allowedOrigin.test(origin);
+    });
+    
+    callback(null, isAllowed);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'X-HTTP-Method-Override'
+  ],
+  exposedHeaders: ['set-cookie'],
+  optionsSuccessStatus: 200,
+  preflightContinue: false
+}));
 
-// Routes
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
+
+app.use(express.json({ 
+  limit: '10mb',
+  strict: false
+}));
+
+app.use(express.urlencoded({ 
+  extended: true, 
+  limit: '10mb',
+  parameterLimit: 1000
+}));
+
+app.options('*', (req, res) => {
+  res.sendStatus(200);
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/detect', detectRoutes);
 app.use('/api/history', historyRoutes);
 
-// Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    cors: 'enabled'
+  });
 });
 
-// Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err);
-  res.status(500).json({ message: 'Internal server error' });
+  console.error('Server Error:', err.message || err);
+  
+  if (err.message && err.message.includes('CORS')) {
+    return res.status(403).json({ 
+      message: 'CORS policy violation',
+      origin: req.headers.origin 
+    });
+  }
+  
+  res.status(err.status || 500).json({ 
+    message: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 });
 
-// 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+  res.status(404).json({ 
+    message: 'Route not found',
+    path: req.baseUrl 
+  });
 });
 
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(config.PORT, () => {
-      console.log(`Server running on port ${config.PORT}`);
-      console.log(`Environment: ${config.NODE_ENV}`);
+    
+    const port = config.PORT || process.env.PORT || 3000;
+    
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Server: ${port}`);
+      console.log(`Environment: ${config.NODE_ENV || 'development'}`);
+      console.log(`CORS: Active`);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('Server Start Failed:', error);
     process.exit(1);
   }
 };
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
 
 startServer();
