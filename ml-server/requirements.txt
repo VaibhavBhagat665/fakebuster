@@ -1,3 +1,9 @@
+flask
+flask-cors
+torch
+psutil
+gunicorn
+
 torch
 transformers
 datasets
@@ -11,9 +17,6 @@ numpy
 
 matplotlib
 seaborn
-
-flask
-flask-cors
 
 requests
 tqdm
