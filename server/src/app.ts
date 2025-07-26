@@ -10,8 +10,8 @@ import historyRoutes from './routes/history';
 
 const app = express();
 
-const getAllowedOrigins = () => {
-  const origins = [
+const getAllowedOrigins = (): (string | RegExp)[] => {
+  const origins: (string | RegExp)[] = [
     'http://localhost:3000',
     'http://localhost:3001',
     'http://127.0.0.1:3000',
@@ -34,14 +34,14 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: function (origin, callback) {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     const allowedOrigins = getAllowedOrigins();
     
     if (!origin) {
       return callback(null, true);
     }
     
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
+    const isAllowed = allowedOrigins.some((allowedOrigin: string | RegExp) => {
       if (typeof allowedOrigin === 'string') {
         return allowedOrigin === origin;
       }
@@ -67,7 +67,10 @@ app.use(cors({
 }));
 
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Credentials', 'true');
   next();
 });
@@ -122,11 +125,11 @@ app.use('*', (req, res) => {
   });
 });
 
-const startServer = async () => {
+const startServer = async (): Promise<void> => {
   try {
     await connectDB();
     
-    const port = config.PORT || process.env.PORT || 3000;
+    const port = parseInt(String(config.PORT || process.env.PORT || 3000), 10);
     
     app.listen(port, '0.0.0.0', () => {
       console.log(`Server: ${port}`);
