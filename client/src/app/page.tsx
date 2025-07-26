@@ -6,7 +6,7 @@ export default function HomePage() {
       <div className="flex items-center justify-center min-h-screen p-4">
         <div className="text-center max-w-2xl">
           <h1 className="text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            🕵️ FakeBuster
+            Auto Buster
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
             Detect AI-generated content with advanced machine learning. 
